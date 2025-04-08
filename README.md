@@ -73,6 +73,8 @@ const { publish, subscribe, unsubscribe } = require('@alphanull/publisher');
 const { publish, subscribe, unsubscribe } = publisher;
 ```
 
+------
+
 ### 2. Basic Usage
 
 Quickly set up a simple Pub/Sub interaction:

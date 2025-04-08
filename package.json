@@ -1,0 +1,60 @@
+{
+    "name": "@alphanull/publisher",
+    "license": "MIT",
+    "version": "1.5.0",
+    "description": "Publisher is a JavaScript publish/subscribe library with many features, including: topic hierarchies, sync/async, priority, conditions, wildcards, persistent messages & more.",
+    "keywords": [
+        "publisher",
+        "publish",
+        "subscribe",
+        "publish/subscribe",
+        "pubsub",
+        "observer",
+        "custom",
+        "events"
+    ],
+    "author": {
+        "name": "Frank Kudermann",
+        "email": "kudermann@alphanull.de",
+        "url": "https://alphanull.de"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/alphanull/publisher.git"
+    },
+    "homepage": "https://github.com/alphanull/publisher#readme",
+    "bugs": {
+        "url": "https://github.com/alphanull/publisher/issues"
+    },
+    "type": "module",
+    "main": "./dist/publisher.min.cjs",
+    "module": "./dist/publisher.min.js",
+    "exports": {
+        "import": "./dist/publisher.min.js",
+        "require": "./dist/publisher.min.cjs"
+    },
+    "files": [
+        "dist"
+    ],
+    "sideEffects": false,
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.22.0",
+        "@rollup/plugin-node-resolve": "^16.0.1",
+        "@rollup/plugin-terser": "^0.4.4",
+        "@stylistic/eslint-plugin": "^4.2.0",
+        "eslint": "^9.22.0",
+        "globals": "^15.15.0",
+        "jsdoc": "^4.0.4",
+        "jsdoc-to-markdown": "^9.1.1",
+        "rollup": "^4.39.0",
+        "rollup-plugin-delete": "^3.0.1"
+    },
+    "scripts": {
+        "doc": "jsdoc2md --private --separators --template ./scripts/docTemplate.hbs --files ./src/*.js > ./docs/publisher.md",
+        "lint": "echo 'Running ESLint...' && eslint src/ --max-warnings=0",
+        "build": "npm run lint && rollup -c ./scripts/rollup.config.js"
+    }
+}

@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/github/license/alphanull/publisher)
-![Version](https://img.shields.io/badge/version-1.5-blue)
+![Version](https://img.shields.io/badge/version-1.5.0-blue)
 [![JSDoc](https://img.shields.io/badge/docs-JSDoc-blue)](./docs/publisher.md)
 ![Size](https://img.shields.io/badge/gzipped~2kb-brightgreen)
 
@@ -51,19 +51,19 @@ npm install @alphanull/publisher <<< not here yet!
 
 publisher can be used as ES6 module (recommended) but also via `require` in NodeJS or with direct access to a global variable:
 
-## ES6
+#### ES6
 
 ```javascript
 import { publish, subscribe, unsubscribe } from '@alphanull/publisher';
 ```
 
-## CommonJS
+#### CommonJS
 
 ```javascript
 const { publish, subscribe, unsubscribe } = require('@alphanull/publisher');
 ```
 
-## Global Variable
+#### Global Variable
 
 ```html
 <script src="path/to/publisher.min.cjs"></script>
@@ -72,7 +72,6 @@ const { publish, subscribe, unsubscribe } = require('@alphanull/publisher');
 ```javascript
 const { publish, subscribe, unsubscribe } = publisher;
 ```
-
 
 ### 2. Basic Usage
 
@@ -191,6 +190,8 @@ publish('limited/event'); // triggers handler
 publish('limited/event'); // not triggered anymore, handler was unsubscribed
 ```
 
+---
+
 ### 8. Conditional Execution
 
 Run subscriptions based on conditional logic, so that the handler is only invoked if the function specified by the `condition` option returns true:
@@ -268,7 +269,7 @@ configure({
 
 ## Docs
 
-For more detailled docs, see [JSDoc Documentation](docs/publisher.md)
+For more detailed docs, see [JSDoc Documentation](docs/publisher.md)
 
 ## License
 

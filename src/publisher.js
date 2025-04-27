@@ -1,46 +1,26 @@
 /**
  * The publisher module. Provides pub/sub functionality with extensive wildcard support, async/sync publishing, priority and invocation options, content based filtering & more.
- * @author Frank Kudermann @ alphanull
- * @version 1.5.0
  * @module publisher
+ * @author Frank Kudermann @ alphanull
+ * @version 1.5.1
  * @see https://github.com/alphanull/publisher
- */
-
-/* TYPE DEFINITIONS */
-
-/**
- * @typedef {Object} module:publisher~globalOptions  Options for the publisher. These can be changed globally by the configure() method.
- * @property {boolean} async=true                If false, messages are sent synchronously; otherwise, they're sent asynchronously (with a timeout).
- * @property {boolean} handleExceptions=false    If true, exceptions are caught, preventing a faulty handler from disrupting subsequent publishing.
- * @property {boolean} lenientUnsubscribe=false  If true, unsubscribing a non-existent subscription or handler will not throw an error.
- */
-
-/**
- * @typedef {Object} module:publisher~subscriberObject Structure of a single subscriber
- * @property {number} token               Unique token identifying this subscriber.
- * @property {string} topic               The topic this subscriber listens to.
- * @property {function} handler           The function executed when a matching publish event occurs.
- * @property {number} [timeOutId]         Timeout ID when publishing asynchronously. Used for cleanup upon unsubscribe (if the handler is still waiting).
- * @property {module:publisher~subscriberOptions} options Subscriber-specific options.
- */
-
-/**
- * @typedef {Object} module:publisher~subscriberOptions   Options for the subscriber. These can be used by publish or subscribe commands.
- * @property {boolean}  [async]              If false, messages are sent synchronously to this subscriber; otherwise, asynchronously.
- * @property {boolean}  [handleExceptions]   If true, exceptions within handlers are caught, preventing disruption of further publishing.
- * @property {function} [condition]          A function evaluated before executing a matching subscriber. Must return true to continue.
- * @property {boolean}  [persist]            If true, the message is saved for future subscribers who request persistent messages.
- * @property {number}   [priority=0]         (Subscribe only) Defines handler execution priority. Higher numbers execute first. Negative values allowed.
- * @property {number}   [invocations]        Number of times the subscription is executed before automatic unsubscription. Default is unlimited.
  */
 
 /* INTERNAL PROPERTIES */
 
 /**
- * Global options for the publisher, can be changed by the setOptions method.
- * @memberOf module:publisher
+ * Internal value to create unique tokens. This is increased everytime you subscribe.
  * @private
- * @type     {module:publisher~globalOptions}
+ * @memberof module:publisher
+ * @type {number}
+ */
+let tokenCounter = -1;
+
+/**
+ * Global options for the publisher, can be changed by the setOptions method.
+ * @private
+ * @memberof module:publisher
+ * @type {module:publisher~globalOptions}
  */
 const globalOptions = {
     async: true,
@@ -50,43 +30,36 @@ const globalOptions = {
 
 /**
  * Object which contains all subscribers, using the token as key.
- * @memberOf module:publisher
  * @private
+ * @memberof module:publisher
  * @type     {Object<module:publisher~subscriberObject>}
- * @property {module:publisher~subscriberObject} subscriberObject The Subscriber Object
+ * @property {module:publisher~subscriberObject}         subscriberObject  The subscriber object containing all necessary information.
  */
 const subscrs = new Map();
 
 /**
- * Object which contains a tree graph of all subscriptions
- * @memberOf module:publisher
+ * Object which contains a tree graph of all subscriptions.
  * @private
- * @type     {Object<Object>}
+ * @memberof module:publisher
+ * @type {Object<Object>}
  */
 const subsTree = new Map();
 
 /**
- * Object which contains persistent messages (published with the "persist" option)
- * @memberOf module:publisher
+ * Object which contains persistent messages (published with the "persist" option).
  * @private
- * @type     {Object<Object>}
+ * @memberof module:publisher
+ * @type {Object<Object>}
  */
 const persistentMessages = new Map();
-
-/**
- * Internal value to create unique tokens. This is increased everytime you subscribe.
- * @memberOf module:publisher
- * @private
- * @type {Number}
- */
-let tokenCounter = -1;
 
 /* PUBLIC API */
 
 /**
  * Sets global options for the publisher. All subsequent actions use these options.
- * @memberOf module:publisher
- * @param    {Object<module:publisher~globalOptions>} options        An object containing various options.
+ * @memberof module:publisher
+ * @param  {Object<module:publisher~globalOptions>} options  An object containing various options.
+ * @throws {Error}                                           If no options were specified.
  */
 export function configure(options) {
 
@@ -102,14 +75,16 @@ export function configure(options) {
 
 /**
  * Publishes a message to all matching subscribers.
- * @memberOf module:publisher
- * @param {string}   topic                       The topic of this message, may be separated with '/' for subtopics.
- * @param {Object}   [data]                      The data that should be sent along with the event. Can be basically any javascript object.
- * @param {Object}   [options={}]                Additional options
- * @param {boolean}  [options.async]             Specify if we should deliver this  message directly or with a timeout. Overrides the global setting.
- * @param {boolean}  [options.handleExceptions]  Specify if we should catch any exceptions while sending this message. Overrides the global setting.
- * @param {boolean}  [options.persist]           If true, the message is saved for later subscribers who want to be notified of persistent messages
- * @param {boolean}  [options.cancelable=true]   If false, this message cannot be canceled (when sending synchronously).
+ * @memberof module:publisher
+ * @param   {string}  topic                       The topic of this message, may be separated with '/' for subtopics.
+ * @param   {Object}  [data]                      The data that should be sent along with the event. Can be basically any javascript object.
+ * @param   {Object}  [options={}]                Additional options.
+ * @param   {boolean} [options.async]             Specify if we should deliver this  message directly or with a timeout. Overrides the global setting.
+ * @param   {boolean} [options.handleExceptions]  Specify if we should catch any exceptions while sending this message. Overrides the global setting.
+ * @param   {boolean} [options.persist]           If this is set to true, the messages is saved for later subscribers which want to be notified of persistent messages.
+ * @param   {boolean} [options.cancelable]        If set to "true" this message cannot be cancelled (when sending synchronously).
+ * @returns {boolean}                             Returns false if a synchronous event was cancelled by a handler.
+ * @throws  {Error}                               When trying to use a wildcard for publishing.
  */
 export function publish(topic, data, options = {}) {
 
@@ -147,20 +122,24 @@ export function publish(topic, data, options = {}) {
 
     }
 
+    return true;
+
 }
 
 /**
  * Subscribes to certain message(s).
- * @memberOf module:publisher
- * @param   {string}   topic                       The topic in which the subscriber is interested. Note that you can use wildcards, ie. the topic "*" will subscribe to all messages.
- * @param   {function} handler                     The handler to execute when a matching message is found.
- * @param   {Object}   [options={}]                Additional options
+ * @memberof module:publisher
+ * @param   {string}   topic                       The topic in which the subscriber is interested. Note that you can use wildcards, ie. The topic "*" will subscribe to all messages.
+ * @param   {Function} handler                     The handler to execute when a matching message is found.
+ * @param   {Object}   [options={}]                Additional options.
+ * @param   {boolean}  [options.async]             Specify if we should deliver this  message directly or with a timeout. Overrides the global setting.
  * @param   {boolean}  [options.handleExceptions]  Specify if we should catch any exceptions while sending this message. Overrides the global setting.
  * @param   {boolean}  [options.persist]           If this is set to true, the subscriber is notified of any former, persistent messages.
- * @param   {function} [options.condition]         A function which receives this topic and data just before execution, if present. If this returns anything but true, the message is not delivered.
+ * @param   {Function} [options.condition]         A function which receives this topic and data just before execution, if present. If this returns anything but true, the message is not delivered.
  * @param   {number}   [options.priority=0]        Specifies with which priority the handler should be executed. The higher the number, the higher the priority. Default is "0", negative values are allowed.
- * @param   {number}   [options.invocations]       Specifies how many times the subscriptions should be executed after a matching event. If this value reaches "0", the handler is automatically unsubscribed
- * @returns {number}                               The internal token of the new subscriber. Can be used for later unsubscribing.
+ * @param   {number}   [options.invocations]       Specifies how many times the subscriptions should be executed after a matching event. If this value reaches "0", the handler is automatically unsubscribed.
+ * @returns {number}                               The internal token of the new subscriber. Can be used for later unsubscribung.
+ * @throws  {Error}                                If topic or handler are undefined.
  */
 export function subscribe(topic, handler, options = {}) {
 
@@ -218,10 +197,11 @@ export function subscribe(topic, handler, options = {}) {
 
 /**
  * Unsubscribes one or more subscribers. Note that here, the second argument can mean either a handler or the "lenient" option.
- * @memberOf module:publisher
- * @param   {number|string|Array}   topicOrToken           The token or the topic to unsubscribe. In the first case, these also can be in an Array to support multiple unsubscriptions.
- * @param   {function}              [handler]              If specified, the message is only unsubscribed if the handler also matches.
- * @param   {boolean}               [lenientUnsubscribe]   If set to true, unsubscribe won't throw an error if the handler or token is not found
+ * @memberof module:publisher
+ * @param  {number|string|Array} topicOrToken          The token or the topic to unsubscribe. In the first case, these also can be in an Array to support multiple unsubscriptions.
+ * @param  {Function}            [handler]             If specified, the message is only unsubscribed if the handler also matches.
+ * @param  {boolean}             [lenientUnsubscribe]  If set to true, unsubscribe won't throw an error if the handler or token is not found.
+ * @throws {Error}                                     If no subscribers were found.
  */
 export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
 
@@ -279,9 +259,9 @@ export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
 }
 
 /**
- * Removes a previously added persistent message
- * @memberOf module:publisher
- * @param  {string} topic The topic of the message to remove
+ * Removes a previously added persistent message.
+ * @memberof module:publisher
+ * @param {string} topic  The topic of the message to remove.
  */
 export function removePersistentMessage(topic) {
 
@@ -289,17 +269,17 @@ export function removePersistentMessage(topic) {
 
 }
 
-/** ******** PRIVATE METHODS ************* */
+/* PRIVATE METHODS */
 
 /**
- * This method actually executes the message handler
- * @memberOf module:publisher
+ * This method actually executes the message handler.
  * @private
- * @param  {function} handler       The actual handler
- * @param  {string} topic           The topic
- * @param  {Object} data            The message data which should be passed to the handler
- * @param  {Object} options={}      Object which holds the publish options
- * @return {function}               Returns the handlers result
+ * @memberof module:publisher
+ * @param   {module:publisher~subscriberObject} subscriber    The sebscriber to execute.
+ * @param   {string}                            topic         The message topic.
+ * @param   {Object}                            data          The message data which should be passed to the handler.
+ * @param   {Object}                            [options={}]  Object which holds the publish options.
+ * @returns {any}                                             Returns the handlers result.
  */
 function executeHandler(subscriber, topic, data, options = {}) {
 
@@ -329,16 +309,17 @@ function executeHandler(subscriber, topic, data, options = {}) {
 
 /**
  * Internal Function to recursively walk the subscription graph according to the current topic scope. Any found subscribers are added to the return array.
- * @memberOf module:publisher
  * @private
- * @param   {String[]} topicArray      Hold eachs segments of the topic in an array, also reflecting the current scope.
- * @param   {Object}   data            The current data which was sent along the message.
- * @param   {Object}   options={}      Current publishing options.
- * @param   {Object}   subscriptions   Part of the subscriptions tree, reflecting the current scope
- * @param   {String}   originalTopic   Original message topic
- * @returns {module:publisher~subscriberObject[]} Array with matching subscribers
+ * @memberof module:publisher
+ * @param   {string[]}                            topicArray     Hold eachs segments of the topic in an array, also reflecting the current scope.
+ * @param   {Object}                              data           The current data which was sent along the message.
+ * @param   {Object}                              [options={}]   Current publishing options.
+ * @param   {Object}                              subscriptions  Part of the subscriptions tree, reflecting the current scope.
+ * @param   {string}                              originalTopic  Original message topic.
+ * @param   {Array}                               handlerArray   array with all found handlers.
+ * @returns {module:publisher~subscriberObject[]}                Array with matching subscribers.
  */
-function findSubscribers(topicArray, data, options = {}, subscriptions, originalTopic, handlerArray = []) { // eslint-disable-line default-param-last, max-params
+function findSubscribers(topicArray, data, options = {}, subscriptions, originalTopic, handlerArray = []) { // eslint-disable-line max-params
 
     const subscribers = subscriptions.get('subscribers') || new Map(),
           topics = subscriptions.get('topics');
@@ -385,11 +366,11 @@ function findSubscribers(topicArray, data, options = {}, subscriptions, original
 
 /**
  * Internal function to add a subscription to the subscriptions graph.
- * @memberOf module:publisher
  * @private
- * @param {String[]} topicArray  Hold eachs segments of the topic in an array, also reflecting the current scope.
- * @param {Object<module:publisher~subscriberObject>}   subscriber    The subscriber to add.
- * @param {Object}   subscriptions Part of the subscription graph, reflecting the current scope.
+ * @memberof module:publisher
+ * @param {string[]}                                  topicArray     Hold eachs segments of the topic in an array, also reflecting the current scope.
+ * @param {Object<module:publisher~subscriberObject>} subscriber     The subscriber to add.
+ * @param {Object}                                    subscriptions  Part of the subscription graph, reflecting the current scope.
  */
 function addSubscription(topicArray, subscriber, subscriptions) {
 
@@ -429,11 +410,11 @@ function addSubscription(topicArray, subscriber, subscriptions) {
 
 /**
  * Internal Function to recursively walk the subscription graph according to the current topic scope. Uses the executeHandlers method to execute any handlers found on it's way.
- * @memberOf module:publisher
  * @private
- * @param   {String[]} topicArray      Hold eachs segments of the topic in an array, also reflecting the current scope.
- * @param   {Object<module:publisher~subscriberObject>}   subscriber      The subscriber to remove.
- * @param   {Object}   subscriptions   Part of the subscriptions tree, reflecting the current scope
+ * @memberof module:publisher
+ * @param {string[]}                                  topicArray     Hold eachs segments of the topic in an array, also reflecting the current scope.
+ * @param {Object<module:publisher~subscriberObject>} subscriber     The subscriber to remove.
+ * @param {Object}                                    subscriptions  Part of the subscriptions tree, reflecting the current scope.
  */
 function removeSubscription(topicArray, subscriber, subscriptions) {
 
@@ -457,3 +438,30 @@ function removeSubscription(topicArray, subscriber, subscriptions) {
     if (topics.get(topic).size === 0) topics.delete(topic);
 
 }
+
+/* TYPE DEFINITIONS */
+
+/**
+ * @typedef  {Object} module:publisher~globalOptions    Options for the publisher. These can be changed on a global basis by the configure() method.
+ * @property {boolean} [async=true]                If set to "false", messages are sent directly, otherwise with a timeout.
+ * @property {boolean} [handleExceptions=false]    If this is true, any exceptions are catched, so that a faulty handler cannot disturb further publishing.
+ * @property {boolean} [lenientUnsubscribe=false]  If this is true, unsubsribing a non-existant subscription or handler will not throw an error.
+ */
+
+/**
+ * @typedef  {Object} module:publisher~subscriberObject Structure of a single Subscriber
+ * @property {string}                                     token      The token of this subscriber.
+ * @property {string}                                     topic      The topic of this subscriber.
+ * @property {Function}                                   handler    The handler to execute when a mathing publish event occurs.
+ * @property {number}                                     timeOutId  The ID of the timeout when using async publish. Used to clean up when unsubscribe occurs and the handler is still waiting.
+ * @property {Object<module:publisher~subscriberOptions>} options    The various subscriber options.
+ */
+
+/**
+ * @typedef  {Object} module:publisher~subscriberOptions    Options for the subscriber. These can be used by publish or subscribe commands, except when noted.
+ * @property {boolean}  [async]             If set to "false", messages are sent directly to this subscriber, otherwise with a timeout.
+ * @property {boolean}  [handleExceptions]  If this is true, any exceptions are catched, so that a faulty handler cannot disturb further publishing.
+ * @property {Function} [condition]         A function to be evaluated before a matching subscriber is executed. Must return true to continue.
+ * @property {boolean}  [persist]           If this is set to true, the messages is saved for later subscribers which want to be notified of persistent messages.
+ * @property {number}   [priority]          Subscribe only: specifies with which priority the handler should be executed. The higher the number, the higher the priority. Default is "0", negative values are allowed.
+ */

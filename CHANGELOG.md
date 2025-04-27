@@ -6,6 +6,17 @@ This project adheres to [Semantic Versioning](https://semver.org) and follows th
 
 ---
 
+## [1.5.1] – 2025-04-06
+
+### Added
+
+- **@alphanull/publisher is on npm now!**
+
+### Changed
+
+- updated inline documentation
+- updated README.md
+
 ## [1.5.0] – 2025-04-06
 
 ### Added

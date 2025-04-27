@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/github/license/alphanull/publisher)
-![Version](https://img.shields.io/badge/version-1.5.0-blue)
+![Version](https://img.shields.io/badge/version-1.5.1-blue)
 [![JSDoc](https://img.shields.io/badge/docs-JSDoc-blue)](./docs/publisher.md)
 ![Size](https://img.shields.io/badge/gzipped~2kb-brightgreen)
 
@@ -24,18 +24,15 @@ Whether you're building scalable web applications or complex front-end architect
 
 ## Installation
 
-
 ### via NPM
 
-**ATTN: Package is not on npm yet due to namespace clearance!**
-
 ```bash
-npm install @alphanull/publisher <<< not here yet!
+npm install @alphanull/publisher
 ```
 
 ### via CDN
 
-**Also, no CDN (yet)**
+**no CDN (yet)**
 
 [Download latest version](https://??????) from ????????
 

@@ -6,7 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org) and follows th
 
 ---
 
-## [1.5.1] – 2025-04-06
+## [1.6.0] – 2025-06-28
+
+### Changed
+
+- async execution now prefers microtask (or Promise) execution over setTimeout
+- improved docs and updated README
+
+## [1.5.1] – 2025-04-27
 
 ### Added
 

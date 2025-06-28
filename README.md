@@ -1,7 +1,7 @@
 ![License](https://img.shields.io/github/license/alphanull/publisher)
-![Version](https://img.shields.io/badge/version-1.5.1-blue)
+![Version](https://img.shields.io/npm/v/@alphanull/publisher)
 [![JSDoc](https://img.shields.io/badge/docs-JSDoc-blue)](./docs/publisher.md)
-![Size](https://img.shields.io/badge/gzipped~2kb-brightgreen)
+![npm package minimized gzipped size](https://img.shields.io/bundlejs/size/@alphanull/publisher)
 
 # @alphanull/publisher
 
@@ -20,8 +20,6 @@ Whether you're building scalable web applications or complex front-end architect
 - **Conditional Execution**: Execute subscriptions only when specific conditions are met.
 - **Global Configuration**: Configure default behavior globally for asynchronous dispatch, error handling, and unsubscribing behavior.
 
----
-
 ## Installation
 
 ### via NPM
@@ -32,15 +30,12 @@ npm install @alphanull/publisher
 
 ### via CDN
 
-**no CDN (yet)**
-
-[Download latest version](https://??????) from ????????
+[Download latest version](https://cdn.jsdelivr.net/npm/@alphanull/publisher@1/dist/publisher.min.js) from jsDelivr
+[Download latest version](https://unpkg.com/@alphanull/publisher@1/dist/publisher.min.js) from unpkg
 
 ### via GitHub
 
 [Download release](https://github.com/alphanull/publisher/releases) from GitHub
-
-------
 
 ## Usage
 
@@ -70,8 +65,6 @@ const { publish, subscribe, unsubscribe } = require('@alphanull/publisher');
 const { publish, subscribe, unsubscribe } = publisher;
 ```
 
-------
-
 ### 2. Basic Usage
 
 Quickly set up a simple Pub/Sub interaction:
@@ -95,8 +88,6 @@ unsubscribe(token);
 // Receiver: alternatively, unsubscribe using topic and handler
 unsubscribe('login', handler);
 ```
-
----
 
 ### 3. Hierarchy and Wildcards
 
@@ -128,8 +119,6 @@ publish('app/profile/update', { username: 'Charlie' }); // triggers first and fo
 publish('app/settings/update', { theme: 'dark' }); // triggers first and fourth subscribers
 ```
 
----
-
 ### 4. Advanced Unsubscribe: Multiple Tokens, Lenient Unsubscribe
 
 You can also use an array of tokens to quickly unsubscribe multiple handlers. In addition, adding `true` to the second argument (or the third, in case you use topic/handler for unsubscribe) does not fail with an error if the matching token was not found.
@@ -147,8 +136,6 @@ unsubscribe(tokens);
 unsubscribe(9999, true);
 ```
 
----
-
 ### 5. Async and Sync Usage, Cancellation
 
 By default, all events are sent asynchronously. You can override this behavior globally (see 10.) or with individual `publish` actions by using `async: false` as an option. In addition, when using synchronous `publish`, any subscriber is able to cancel an event, so that subsequent subscribers are not notified anymore. So basically, this works similar to the cancellation of DOM Events.
@@ -160,8 +147,6 @@ subscribe('sync/event', () => false);
 // Synchronous event publishing can be canceled 
 publish('sync/event', {}, { async: false, cancelable: true });
 ```
-
----
 
 ### 6. Priority
 
@@ -175,8 +160,6 @@ subscribe('priority/event', () => console.log('first'), { priority: 2 });
 publish('priority/event');
 ```
 
----
-
 ### 7. Invocations
 
 It is also possible to limit the number of handler invocations by adding the `invocations` option, this being a positive number counting down when the handler is called. Once the counter reaches `0` the handler is automatically unsubscribed. For example, the following code executes the handler only on the first `publish` occurence:
@@ -188,8 +171,6 @@ subscribe('limited/event', () => console.log('I only execute once'), { invocatio
 publish('limited/event'); // triggers handler
 publish('limited/event'); // not triggered anymore, handler was unsubscribed
 ```
-
----
 
 ### 8. Conditional Execution
 
@@ -205,8 +186,6 @@ subscribe('data/event', data => {
 publish('data/event', { status: 'success' }); // triggers subscriber
 publish('data/event', { status: 'error' }); // ignored
 ```
-
----
 
 ### 9. Persistency
 
@@ -224,8 +203,6 @@ subscribe('app/ready', data => console.log('Persistently received:', data), { pe
 // after removing, later subscriber don't receive the event anymore
 removePersistentMessage('app/ready');
 ```
-
----
 
 ### 10. Error Handling
 
@@ -247,8 +224,6 @@ publish('error/event', data , { handleExceptions: true });
 publish('error/event', data , { handleExceptions: false });
 ```
 
----
-
 ### 11. Global Configuration
 
 Configure Publisher.js globally to tailor its behavior. All subsequent actions will use the newly set option(s), unless locally overidden.
@@ -264,14 +239,12 @@ configure({
 });
 ```
 
----
-
 ## Docs
 
 For more detailed docs, see [JSDoc Documentation](docs/publisher.md)
 
 ## License
 
-[MIT](https://opensource.org/license/MIT) 
+[MIT License](https://opensource.org/license/MIT)
 
-Copyright © 2015-present Frank Kudermann @ alphanull.de
+Copyright © 2015–present Frank Kudermann @ [alphanull.de](https://alphanull.de)

@@ -1,7 +1,7 @@
 {
     "name": "@alphanull/publisher",
     "license": "MIT",
-    "version": "1.5.1",
+    "version": "1.6.0",
     "description": "Publisher is a JavaScript publish/subscribe library with many features, including: topic hierarchies, sync/async, priority, conditions, wildcards, persistent messages & more.",
     "keywords": [
         "publisher",

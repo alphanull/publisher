@@ -1,20 +1,19 @@
 /**
  * The publisher module. Provides pub/sub functionality with extensive wildcard support, async/sync publishing, priority and invocation options, content based filtering & more.
  * @module publisher
- * @author Frank Kudermann @ alphanull
- * @version 1.5.1
- * @see https://github.com/alphanull/publisher
+ * @author Frank Kudermann / alphanull
+ * @version 1.6.0
+ * @license MIT
  */
+export default {
+    configure,
+    publish,
+    subscribe,
+    unsubscribe,
+    removePersistentMessage
+};
 
 /* INTERNAL PROPERTIES */
-
-/**
- * Internal value to create unique tokens. This is increased everytime you subscribe.
- * @private
- * @memberof module:publisher
- * @type {number}
- */
-let tokenCounter = -1;
 
 /**
  * Global options for the publisher, can be changed by the setOptions method.
@@ -29,11 +28,19 @@ const globalOptions = {
 };
 
 /**
+ * Internal value to create unique tokens. This is increased everytime you subscribe.
+ * @private
+ * @memberof module:publisher
+ * @type {number}
+ */
+let tokenCounter = -1;
+
+/**
  * Object which contains all subscribers, using the token as key.
  * @private
  * @memberof module:publisher
- * @type     {Object<module:publisher~subscriberObject>}
- * @property {module:publisher~subscriberObject}         subscriberObject  The subscriber object containing all necessary information.
+ * @type     {Map<module:publisher~subscriberObject>}
+ * @property {module:publisher~subscriberObject}      subscriberObject  The subscriber object containing all necessary information.
  */
 const subscrs = new Map();
 
@@ -41,7 +48,7 @@ const subscrs = new Map();
  * Object which contains a tree graph of all subscriptions.
  * @private
  * @memberof module:publisher
- * @type {Object<Object>}
+ * @type {Map<Object>}
  */
 const subsTree = new Map();
 
@@ -49,27 +56,44 @@ const subsTree = new Map();
  * Object which contains persistent messages (published with the "persist" option).
  * @private
  * @memberof module:publisher
- * @type {Object<Object>}
+ * @type {Map<Object>}
  */
 const persistentMessages = new Map();
+
+/**
+ * Executes a function asynchronously, using the most performant available method.
+ * Falls back to setTimeout if no microtask queue is available.
+ * @private
+ * @memberof module:publisher
+ * @param {Function} fn  The function to execute.
+ */
+function deferExecution(fn) {
+    if (typeof queueMicrotask === 'function') queueMicrotask(fn);
+    else if (typeof Promise === 'function') Promise.resolve().then(fn);
+    else setTimeout(fn, 0);
+}
+
+/**
+ * Checks if the given value is undefied.
+ * @param   {*}       obj  The value to check.
+ * @returns {boolean}      True if the value is undefined, false otherwise.
+ */
+function isUndefined(obj) {
+    return typeof obj === 'undefined';
+}
 
 /* PUBLIC API */
 
 /**
  * Sets global options for the publisher. All subsequent actions use these options.
  * @memberof module:publisher
- * @param  {Object<module:publisher~globalOptions>} options  An object containing various options.
- * @throws {Error}                                           If no options were specified.
+ * @param {Object<module:publisher~globalOptions>} options  An object containing various options.
  */
-export function configure(options) {
+export function configure({ async, handleExceptions, lenientUnsubscribe } = {}) {
 
-    if (options) {
-        if (typeof options.async !== 'undefined') globalOptions.async = options.async;
-        if (typeof options.handleExceptions !== 'undefined') globalOptions.handleExceptions = options.handleExceptions;
-        if (typeof options.lenientUnsubscribe !== 'undefined') globalOptions.lenientUnsubscribe = options.lenientUnsubscribe;
-    } else {
-        throw new Error('Publisher configure: no options specified');
-    }
+    if (!isUndefined(async)) globalOptions.async = async;
+    if (!isUndefined(handleExceptions)) globalOptions.handleExceptions = handleExceptions;
+    if (!isUndefined(lenientUnsubscribe)) globalOptions.lenientUnsubscribe = lenientUnsubscribe;
 
 }
 
@@ -90,32 +114,32 @@ export function publish(topic, data, options = {}) {
 
     // check if this message is persistent and must be saved for later use
     if (options.persist === true) {
-        persistentMessages.set(topic, { data, options });
+        persistentMessages.set(topic, {
+            data,
+            options
+        });
     }
 
     if (topic.indexOf('*') > -1) throw new Error('Publish topic cannot contain any wildcards.');
 
-    // find subscribers
     const matchedSubscribers = findSubscribers(topic.split('/'), data, options, subsTree, topic);
 
     // sort handlers by priority
     matchedSubscribers.sort((a, b) => {
-        if (a.priority === b.priority) return a.position - b.position; // emulate stable sort
-        if (a.priority > b.priority) return -1;
+        if (a.priority === b.priority) { return a.position - b.position; } // emulate stable sort
+        if (a.priority > b.priority) { return -1; }
         return 1;
     });
 
     // finally, execute them
     let subscriber;
 
-    const async = typeof options.async === 'undefined'
-        ? globalOptions.async
-        : options.async;
+    const async = isUndefined(options.async) ? globalOptions.async : options.async;
 
     while ((subscriber = matchedSubscribers.shift())) {
 
         if (async) {
-            setTimeout(executeHandler.bind(null, subscriber, topic, data, options), 0);
+            deferExecution(executeHandler.bind(null, subscriber, topic, data, options));
         } else if (executeHandler(subscriber, topic, data, options) === false && options.cancelable !== false) {
             return false;
         }
@@ -145,17 +169,17 @@ export function subscribe(topic, handler, options = {}) {
 
     const token = tokenCounter += 1;
 
-    if (typeof topic === 'undefined') {
-        throw new Error('Subscribe failed - "undefined" Topic.');
+    if (isUndefined(topic)) {
+        throw new Error('Subscribe failed - undefined Topic.');
     }
 
     if (topic.includes('undefined')) {
         throw new Error(`Subscribe for '${topic}' failed - found 'undefined' in topic, this is almost always an error: ${token}`);
-    }
+    } // $$$ TEMP
 
-    if (typeof handler === 'undefined') {
-        throw new Error(`Subscribe for '${topic}' failed - "undefined" Handler`);
-    }
+    if (isUndefined(handler)) {
+        throw new Error(`Subscribe for '${topic}' failed - undefined Handler`);
+    } // $$$ TEMP
 
     // Add to Subscribers Object
     const subscriber = {
@@ -172,23 +196,21 @@ export function subscribe(topic, handler, options = {}) {
 
     const regex = new RegExp(`^${topic.replace('*', '(.+)')}(/.+)?$`);
 
-    // Check persistent messages for matching topic
+    // check persistent messages for matching topic
     for (const [key, persistentMessage] of persistentMessages) {
 
         const match = key.match(regex);
 
         if (match) {
 
-            const async = typeof persistentMessage.options.async === 'undefined' ? globalOptions.async : persistentMessage.options.async;
+            const async = isUndefined(persistentMessage.options.async) ? globalOptions.async : persistentMessage.options.async;
 
             if (async) {
-                setTimeout(executeHandler.bind(null, subscriber, key, persistentMessage.data, options), 0);
+                deferExecution(executeHandler.bind(null, subscriber, key, persistentMessage.data, options));
             } else if (executeHandler(subscriber, key, persistentMessage.data, options) === false && options.cancelable === true) {
                 break;
             }
-
         }
-
     }
 
     return token; // return the token (as Number)
@@ -198,21 +220,21 @@ export function subscribe(topic, handler, options = {}) {
 /**
  * Unsubscribes one or more subscribers. Note that here, the second argument can mean either a handler or the "lenient" option.
  * @memberof module:publisher
- * @param  {number|string|Array} topicOrToken          The token or the topic to unsubscribe. In the first case, these also can be in an Array to support multiple unsubscriptions.
- * @param  {Function}            [handler]             If specified, the message is only unsubscribed if the handler also matches.
- * @param  {boolean}             [lenientUnsubscribe]  If set to true, unsubscribe won't throw an error if the handler or token is not found.
- * @throws {Error}                                     If no subscribers were found.
+ * @param  {number|number[]|string} topicOrToken          The token or the topic to unsubscribe. In the first case, these also can be in an Array to support multiple unsubscriptions.
+ * @param  {Function|boolean}       [handler]             If specified, the message is only unsubscribed if the handler also matches.
+ * @param  {boolean}                [lenientUnsubscribe]  If set to true, unsubscribe won't throw an error if the handler or token is not found.
+ * @throws {Error}                                        If no subscribers were found.
  */
 export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
 
     const lenientArg = handler === Boolean(handler) ? handler : lenientUnsubscribe,
-          lenient = typeof lenientArg === 'undefined' ? globalOptions.lenientUnsubscribe : lenientArg;
+          lenient = isUndefined(lenientArg) ? globalOptions.lenientUnsubscribe : lenientArg;
 
     const unsubscribeToken = token => {
 
         const subscriber = subscrs.get(token);
 
-        if (typeof subscriber === 'undefined') {
+        if (isUndefined(subscriber)) {
             if (lenient === true) return;
             throw new Error(`Unsubscribe failed. Did not find subscriber for token: ${token}`);
         }
@@ -222,7 +244,7 @@ export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
 
     };
 
-    if (typeof topicOrToken === 'undefined') {
+    if (isUndefined(topicOrToken)) {
         if (lenient === true) return;
         throw new Error('Unsubscribe failed. No Arguments specified.');
     }
@@ -240,12 +262,13 @@ export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
 
         // assume topic & handler based unsubscribe
         // check for existing handler first
-        if (typeof handler === 'undefined') {
+
+        if (isUndefined(handler)) {
             if (lenient === true) return;
             throw new Error(`Unsubscribe failed. No handler for topic based unsubscribe specified ${topicOrToken}`);
         }
 
-        // TODO: not really efficient,
+        // TODO: notreally efficient,
         // consider walking the topic tree instead
         for (const [, subscriber] of subscrs) {
             if (subscriber.handler === handler && subscriber.topic === topicOrToken) {
@@ -254,6 +277,7 @@ export function unsubscribe(topicOrToken, handler, lenientUnsubscribe) {
                 break;
             }
         }
+
     }
 
 }
@@ -275,7 +299,7 @@ export function removePersistentMessage(topic) {
  * This method actually executes the message handler.
  * @private
  * @memberof module:publisher
- * @param   {module:publisher~subscriberObject} subscriber    The sebscriber to execute.
+ * @param   {module:publisher~subscriberObject} subscriber    The subscriber to execute.
  * @param   {string}                            topic         The message topic.
  * @param   {Object}                            data          The message data which should be passed to the handler.
  * @param   {Object}                            [options={}]  Object which holds the publish options.
@@ -284,21 +308,21 @@ export function removePersistentMessage(topic) {
 function executeHandler(subscriber, topic, data, options = {}) {
 
     // prevent async handler to be called when subscriber has been removed meanwhile
-    if (!subscrs.has(subscriber.token)) return;
+    if (!subscrs.has(subscriber.token)) { return; }
 
     if (subscriber.options.invocations > 0) {
         subscriber.options.invocations -= 1;
-        if (subscriber.options.invocations <= 0) unsubscribe(subscriber.token);
+        if (subscriber.options.invocations < 1) unsubscribe(subscriber.token);
     }
 
     const { handler } = subscriber;
 
     if (options.handleExceptions !== true && globalOptions.handleExceptions !== true) {
-        return handler(data, topic);
+        return subscriber.options.topicArg === true ? handler(topic, data) : handler(data, topic);
     }
 
     try {
-        return handler(data, topic);
+        return subscriber.options.topicArg === true ? handler(topic, data) : handler(data, topic);
     } catch (e) {
         if (window.console && window.console.error) {
             window.console.error('Exception while executing publish handler: ', e);
@@ -326,14 +350,13 @@ function findSubscribers(topicArray, data, options = {}, subscriptions, original
 
     for (const [, subscriber] of subscribers) {
 
-        const { condition } = subscriber.options; // condition for content based publishing
+        const { condition, topicArg } = subscriber.options; // condition for content based publishing
 
-        if (typeof condition === 'undefined' || Object.prototype.toString.call(condition) === '[object Function]' && condition(data, originalTopic) === true) {
+        if (isUndefined(condition) || (topicArg === true ? condition(originalTopic, data) === true : condition(data, originalTopic) === true)) { // TODO: Refactor
             // last but not least, check if there are any additional conditions set
             subscriber.position = handlerArray.push(subscriber);
             subscriber.priority = subscriber.options.priority || 0;
             subscriber.async = Boolean(options.async || subscriber.options.async || globalOptions.async);
-
         }
 
     }
@@ -343,14 +366,14 @@ function findSubscribers(topicArray, data, options = {}, subscriptions, original
         const subscription = topics.get(topicArray[0]),
               subscriptionWild = topics.get('*');
 
-        if (typeof subscriptionWild !== 'undefined' || typeof subscription !== 'undefined') {
+        if (!isUndefined(subscriptionWild) || !isUndefined(subscription)) {
 
             // if there are further subscriptions on this node, recurse
-            if (typeof subscriptionWild !== 'undefined') {
+            if (!isUndefined(subscriptionWild)) {
                 findSubscribers(topicArray.slice(1, topicArray.length), data, options, subscriptionWild, originalTopic, handlerArray);
             }
 
-            if (typeof subscription !== 'undefined') {
+            if (!isUndefined(subscription)) {
                 findSubscribers(topicArray.slice(1, topicArray.length), data, options, subscription, originalTopic, handlerArray);
             }
 
@@ -376,7 +399,7 @@ function addSubscription(topicArray, subscriber, subscriptions) {
 
     const [topic] = topicArray;
 
-    if (typeof subscriptions.get('topics') === 'undefined') {
+    if (isUndefined(subscriptions.get('topics'))) {
         subscriptions.set('topics', new Map());
     }
 
@@ -384,7 +407,7 @@ function addSubscription(topicArray, subscriber, subscriptions) {
 
     let subscription = subTopic.get(topic);
 
-    if (typeof subscription === 'undefined') {
+    if (isUndefined(subscription)) {
         subscription = new Map();
         subTopic.set(topic, subscription);
     }
@@ -392,7 +415,7 @@ function addSubscription(topicArray, subscriber, subscriptions) {
     if (topicArray.length < 2) {
 
         // last segment, add subscriber
-        if (typeof subscription.get('subscribers') === 'undefined') {
+        if (isUndefined(subscription.get('subscribers'))) {
             subscription.set('subscribers', new Map());
         }
 
@@ -409,7 +432,7 @@ function addSubscription(topicArray, subscriber, subscriptions) {
 }
 
 /**
- * Internal Function to recursively walk the subscription graph according to the current topic scope. Uses the executeHandlers method to execute any handlers found on it's way.
+ * Internal Function to recursively walk the subscription graph according to the current topic scope.
  * @private
  * @memberof module:publisher
  * @param {string[]}                                  topicArray     Hold eachs segments of the topic in an array, also reflecting the current scope.
@@ -424,9 +447,12 @@ function removeSubscription(topicArray, subscriber, subscriptions) {
           subscribers = subTopic.get('subscribers');
 
     if (topicArray.length < 2) {
+
         // last segment, remove subscriber
         subscribers.delete(subscriber.token);
+
         if (subscribers.size === 0) subTopic.delete('subscribers');
+
     } else {
         // recurse
         topicArray.shift();

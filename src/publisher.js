@@ -2,16 +2,9 @@
  * The publisher module. Provides pub/sub functionality with extensive wildcard support, async/sync publishing, priority and invocation options, content based filtering & more.
  * @module publisher
  * @author Frank Kudermann / alphanull
- * @version 1.6.0
+ * @version 1.6.2
  * @license MIT
  */
-export default {
-    configure,
-    publish,
-    subscribe,
-    unsubscribe,
-    removePersistentMessage
-};
 
 /* INTERNAL PROPERTIES */
 
